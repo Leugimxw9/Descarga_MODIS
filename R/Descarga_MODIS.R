@@ -104,5 +104,70 @@ if(Resp=="NO"){
 if(Resp=="CANCEL"){stop(winDialog("ok","Se detuvo el procedimiento de descarga."))}
 
 
+# # Procesamiento datos  --------------------------------------------------
+
+# Lectura MODIS -----------------------------------------------------------
+
+print("*** LECTURA Y PROCESAMIENTO DE EVAPOTRANSPIRACIÓN ***")
+setwd("~/_Descarga_Datos/MODIS/Imagenes_MODIS/")
+
+print("Cargando archivos tif...")
+Modis_datos<- list.files(pattern = "tif")
+Modis_datos<-stack(Modis_datos)
+print("Información...")
+Modis_datos
+Nombre<-names(Modis_datos)
+
+print("Calculando factor de conversión...")
+Factor_modis<-function(x){
+  x*0.1
+}
+Modis_datos<-calc(Modis_datos, fun=Factor_modis)
+
+print("Convirtiendo valores de relleno a NA...")
+Modis_datos[Modis_datos > 3000]<-NA
+
+if(Resp=="YES"){
+print("Aplicando Máscara...")
+Modis_datos<-crop(Modis_datos,extent(Area))
+Modis_datos<-mask(Modis_datos, Area)
+}
+
+print("Creando Mapas...")
+if(!require(RColorBrewer)){
+  install.packages("RColorBrewer")
+  require(RColorBrewer)}else{library(RColorBrewer)}
+
+col_RB<-colorRampPalette(c("Blue", "Yellow", "Red"))
+
+NL<-(nlayers(Modis_datos))
+i=0
+while(i<=NL){
+  i<-i+1
+  if(i<=NL){
+    cat("Datos restantes: ",(NL-i), "\n")
+    png(filename=paste0(Nombre[i],".png"), width = 1200, height=1200, units="px")
+    plot(Modis_datos[[i]], col=col_RB(maxValue(Modis_datos[[i]])), main="Evapotranspiración", sub=paste0(Nombre[i]),
+         cex.main=3, cex.sub=2, cex.lab=4)
+    dev.off()
+  }
+}
+
+RespG<-winDialog("yesno","¿Desea guardar las imágenes procesadas?")
+
+if(RespG=="YES"){
+  print("*** COMENZANDO A GUARDAR DATOS RASTER ***")
+  dir.create("~/_Descarga_Datos/MODIS/Raster procesados/")
+  i=0
+  while(i <= NL){
+    
+    i<-i+1
+    if(i<NL){
+      cat("Datos restantes: ",(NL-i), "\n")
+      writeRaster(Modis_datos[[i]], filename = paste0("~/_Descarga_Datos/MODIS/Raster procesados/", Nombre[i]), suffix=Nombre[i], format="GTiff", overwrite=TRUE)
+    }
+  }
+}else{winDialog("ok","Proceso terminado.")}
+
 
 
